@@ -1,0 +1,30 @@
+:root {
+  --hero-gradient: linear-gradient(135deg, #001827 0%, #005f73 100%);
+}
+
+.hero-scroll-container {
+  /* Provide a tall scrollable area to scrub through the 120 frames */
+  height: 800vh;
+  position: relative;
+  background: var(--hero-gradient);
+}
+
+.hero-sticky-zone {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Optional: Subtle scrollbar styling for the scrollytelling experience */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #001827;
+}
+::-webkit-scrollbar-thumb {
+  background: #005f73;
+  border-radius: 4px;
+}
