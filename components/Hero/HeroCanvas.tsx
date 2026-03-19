@@ -108,45 +108,29 @@ export default function HeroCanvas() {
   useEffect(() => {
     let lastWheelTime = 0;
     let hasTriggeredScroll = false;
+    let touchStartY = 0;
 
-    // We lock the viewport until animation steps are complete
-    const handleWheel = (e: WheelEvent) => {
-      // Allow native page scrolling if they have already scrolled down past the hero natively.
-      if (window.scrollY > 10) return;
-
-      // Emit a custom event on the first scroll to trigger background music in Navbar
-      if (!hasTriggeredScroll) {
-        hasTriggeredScroll = true;
-        window.dispatchEvent(new CustomEvent("first-scroll"));
-      }
-
+    const advanceStep = (direction: number, preventFn: () => void) => {
       const now = Date.now();
       const step = stepRef.current;
 
-      // Ensure cooldown between animation steps to stop trackpad hyperscrolling
       if (now - lastWheelTime < 1300) {
-        // Keep locking native scroll upwards/downwards if we are in the middle of animating stages
-        if (step < STOPS.length - 1 || e.deltaY < 0) {
-          e.preventDefault();
+        if (step < STOPS.length - 1 || direction < 0) {
+          preventFn();
         }
         return;
       }
 
-      // Scrolling Downwards
-      if (e.deltaY > 0) {
+      if (direction > 0) {
         if (step < STOPS.length - 1) {
-          e.preventDefault(); // lock native scroll while we play animations
+          preventFn();
           stepRef.current = step + 1;
           targetFrame.set(STOPS[stepRef.current]);
           lastWheelTime = now;
         }
-        // If step == STOPS.length - 1 (the end), we do NOT preventDefault, allowing you to seamlessly scroll the rest of the website!
-      }
-      // Scrolling Upwards
-      else if (e.deltaY < 0) {
-        // Only trap reverse scrolls if they are truly at the literal top of the page viewport
+      } else if (direction < 0) {
         if (step > 0 && window.scrollY <= 10) {
-          e.preventDefault(); // lock native scroll while rewinding
+          preventFn();
           stepRef.current = step - 1;
           targetFrame.set(STOPS[stepRef.current]);
           lastWheelTime = now;
@@ -154,9 +138,49 @@ export default function HeroCanvas() {
       }
     };
 
-    // Need non-passive to intercept DOM scroll!
+    const handleWheel = (e: WheelEvent) => {
+      if (window.scrollY > 10) return;
+      if (!hasTriggeredScroll) {
+        hasTriggeredScroll = true;
+        window.dispatchEvent(new CustomEvent("first-scroll"));
+      }
+      advanceStep(e.deltaY, () => e.preventDefault());
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+      if (!hasTriggeredScroll) {
+        hasTriggeredScroll = true;
+        window.dispatchEvent(new CustomEvent("first-scroll"));
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (window.scrollY > 10) return;
+      const touchY = e.touches[0].clientY;
+      const deltaY = touchStartY - touchY;
+
+      if (Math.abs(deltaY) > 30) {
+        advanceStep(deltaY, () => {
+          if (e.cancelable) e.preventDefault();
+        });
+        touchStartY = touchY;
+      } else {
+        if (stepRef.current < STOPS.length - 1) {
+          if (e.cancelable) e.preventDefault();
+        }
+      }
+    };
+
     window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => window.removeEventListener("wheel", handleWheel);
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
+    };
   }, [targetFrame]);
 
   // 3. Canvas Drawing Logic
